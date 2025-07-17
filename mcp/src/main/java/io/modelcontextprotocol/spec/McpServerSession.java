@@ -1,5 +1,7 @@
 package io.modelcontextprotocol.spec;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -7,10 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoSink;
 import reactor.core.publisher.Sinks;
@@ -60,12 +62,10 @@ public class McpServerSession implements McpSession {
 	 * Creates a new server session with the given parameters and the transport to use.
 	 * @param id session id
 	 * @param transport the transport to use
-	 * @param initHandler called when a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.InitializeRequest} is received by the
-	 * server
+	 * @param initHandler called when a {@link McpSchema.InitializeRequest} is received by
+	 * the server
 	 * @param initNotificationHandler called when a
-	 * {@link io.modelcontextprotocol.spec.McpSchema#METHOD_NOTIFICATION_INITIALIZED} is
-	 * received.
+	 * {@link McpSchema#METHOD_NOTIFICATION_INITIALIZED} is received.
 	 * @param requestHandlers map of request handlers to use
 	 * @param notificationHandlers map of notification handlers to use
 	 */
@@ -148,8 +148,8 @@ public class McpServerSession implements McpSession {
 	 * The purpose of this method is to dispatch the message to an appropriate handler as
 	 * specified by the MCP server implementation
 	 * ({@link io.modelcontextprotocol.server.McpAsyncServer} or
-	 * {@link io.modelcontextprotocol.server.McpSyncServer}) via
-	 * {@link McpServerSession.Factory} that the server creates.
+	 * {@link io.modelcontextprotocol.server.McpSyncServer}) via {@link Factory} that the
+	 * server creates.
 	 * @param message the incoming JSON-RPC message
 	 * @return a Mono that completes when the message is processed
 	 */
@@ -158,7 +158,7 @@ public class McpServerSession implements McpSession {
 			// TODO handle errors for communication to without initialization happening
 			// first
 			if (message instanceof McpSchema.JSONRPCResponse response) {
-				logger.debug("Received Response: {}", response);
+				logger.info("Received Response: {}", response);
 				var sink = pendingResponses.remove(response.id());
 				if (sink == null) {
 					logger.warn("Unexpected response for unknown id {}", response.id());
@@ -169,7 +169,7 @@ public class McpServerSession implements McpSession {
 				return Mono.empty();
 			}
 			else if (message instanceof McpSchema.JSONRPCRequest request) {
-				logger.debug("Received request: {}", request);
+				logger.info("Received request: {}", request);
 				return handleIncomingRequest(request).onErrorResume(error -> {
 					var errorResponse = new McpSchema.JSONRPCResponse(McpSchema.JSONRPC_VERSION, request.id(), null,
 							new McpSchema.JSONRPCResponse.JSONRPCError(McpSchema.ErrorCodes.INTERNAL_ERROR,
@@ -181,7 +181,7 @@ public class McpServerSession implements McpSession {
 			else if (message instanceof McpSchema.JSONRPCNotification notification) {
 				// TODO handle errors for communication to without initialization
 				// happening first
-				logger.debug("Received notification: {}", notification);
+				logger.info("Received notification: {}", notification);
 				// TODO: in case of error, should the POST request be signalled?
 				return handleIncomingNotification(notification)
 					.doOnError(error -> logger.error("Error handling notification: {}", error.getMessage()));

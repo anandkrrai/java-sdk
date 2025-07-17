@@ -4,6 +4,8 @@
 
 package io.modelcontextprotocol.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.modelcontextprotocol.spec.DefaultJsonSchemaValidator;
 import io.modelcontextprotocol.spec.JsonSchemaValidator;
@@ -888,7 +888,7 @@ public interface McpServer {
 		 */
 		@Deprecated
 		public SyncSpecification tool(McpSchema.Tool tool,
-				BiFunction<McpSyncServerExchange, Map<String, Object>, McpSchema.CallToolResult> handler) {
+				BiFunction<McpSyncServerExchange, Map<String, Object>, CallToolResult> handler) {
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(handler, "Handler must not be null");
 			assertNoDuplicateTool(tool.name());
@@ -912,7 +912,7 @@ public interface McpServer {
 		 * @throws IllegalArgumentException if tool or handler is null
 		 */
 		public SyncSpecification toolCall(McpSchema.Tool tool,
-				BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> handler) {
+				BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, CallToolResult> handler) {
 			Assert.notNull(tool, "Tool must not be null");
 			Assert.notNull(handler, "Handler must not be null");
 			assertNoDuplicateTool(tool.name());

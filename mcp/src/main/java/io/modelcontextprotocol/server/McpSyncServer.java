@@ -83,9 +83,7 @@ public class McpSyncServer {
 	 * @param toolHandler The tool handler to add
 	 */
 	public void addTool(McpServerFeatures.SyncToolSpecification toolHandler) {
-		this.asyncServer
-			.addTool(McpServerFeatures.AsyncToolSpecification.fromSync(toolHandler, this.immediateExecution))
-			.block();
+		this.asyncServer.addTool(AsyncToolSpecification.fromSync(toolHandler, this.immediateExecution)).block();
 	}
 
 	/**

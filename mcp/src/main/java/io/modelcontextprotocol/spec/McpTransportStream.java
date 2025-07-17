@@ -1,9 +1,10 @@
 package io.modelcontextprotocol.spec;
 
-import org.reactivestreams.Publisher;
-import reactor.util.function.Tuple2;
-
 import java.util.Optional;
+
+import org.reactivestreams.Publisher;
+
+import reactor.util.function.Tuple2;
 
 /**
  * A representation of a stream at the transport layer of the MCP protocol. In particular,
@@ -35,9 +36,8 @@ public interface McpTransportStream<CONNECTION> {
 	 * of stream errors.
 	 * @param eventStream a {@link Publisher} of tuples (pairs) of an optional identifier
 	 * associated with a collection of messages
-	 * @return a flattened {@link Publisher} of
-	 * {@link io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage JSON-RPC messages}
-	 * with the identifier stripped away
+	 * @return a flattened {@link Publisher} of {@link McpSchema.JSONRPCMessage JSON-RPC
+	 * messages} with the identifier stripped away
 	 */
 	Publisher<McpSchema.JSONRPCMessage> consumeSseStream(
 			Publisher<Tuple2<Optional<String>, Iterable<McpSchema.JSONRPCMessage>>> eventStream);

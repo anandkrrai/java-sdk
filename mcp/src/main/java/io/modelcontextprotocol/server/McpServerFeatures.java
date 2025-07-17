@@ -40,10 +40,9 @@ public class McpServerFeatures {
 	 * @param instructions The server instructions text
 	 */
 	record Async(McpSchema.Implementation serverInfo, McpSchema.ServerCapabilities serverCapabilities,
-			List<McpServerFeatures.AsyncToolSpecification> tools, Map<String, AsyncResourceSpecification> resources,
-			List<McpSchema.ResourceTemplate> resourceTemplates,
-			Map<String, McpServerFeatures.AsyncPromptSpecification> prompts,
-			Map<McpSchema.CompleteReference, McpServerFeatures.AsyncCompletionSpecification> completions,
+			List<AsyncToolSpecification> tools, Map<String, AsyncResourceSpecification> resources,
+			List<McpSchema.ResourceTemplate> resourceTemplates, Map<String, AsyncPromptSpecification> prompts,
+			Map<McpSchema.CompleteReference, AsyncCompletionSpecification> completions,
 			List<BiFunction<McpAsyncServerExchange, List<McpSchema.Root>, Mono<Void>>> rootsChangeConsumers,
 			String instructions) {
 
@@ -60,10 +59,9 @@ public class McpServerFeatures {
 		 * @param instructions The server instructions text
 		 */
 		Async(McpSchema.Implementation serverInfo, McpSchema.ServerCapabilities serverCapabilities,
-				List<McpServerFeatures.AsyncToolSpecification> tools, Map<String, AsyncResourceSpecification> resources,
-				List<McpSchema.ResourceTemplate> resourceTemplates,
-				Map<String, McpServerFeatures.AsyncPromptSpecification> prompts,
-				Map<McpSchema.CompleteReference, McpServerFeatures.AsyncCompletionSpecification> completions,
+				List<AsyncToolSpecification> tools, Map<String, AsyncResourceSpecification> resources,
+				List<McpSchema.ResourceTemplate> resourceTemplates, Map<String, AsyncPromptSpecification> prompts,
+				Map<McpSchema.CompleteReference, AsyncCompletionSpecification> completions,
 				List<BiFunction<McpAsyncServerExchange, List<McpSchema.Root>, Mono<Void>>> rootsChangeConsumers,
 				String instructions) {
 
@@ -102,7 +100,7 @@ public class McpServerFeatures {
 		 * user.
 		 */
 		static Async fromSync(Sync syncSpec, boolean immediateExecution) {
-			List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
+			List<AsyncToolSpecification> tools = new ArrayList<>();
 			for (var tool : syncSpec.tools()) {
 				tools.add(AsyncToolSpecification.fromSync(tool, immediateExecution));
 			}
@@ -117,7 +115,7 @@ public class McpServerFeatures {
 				prompts.put(key, AsyncPromptSpecification.fromSync(prompt, immediateExecution));
 			});
 
-			Map<McpSchema.CompleteReference, McpServerFeatures.AsyncCompletionSpecification> completions = new HashMap<>();
+			Map<McpSchema.CompleteReference, AsyncCompletionSpecification> completions = new HashMap<>();
 			syncSpec.completions().forEach((key, completion) -> {
 				completions.put(key, AsyncCompletionSpecification.fromSync(completion, immediateExecution));
 			});
@@ -149,11 +147,9 @@ public class McpServerFeatures {
 	 * @param instructions The server instructions text
 	 */
 	record Sync(McpSchema.Implementation serverInfo, McpSchema.ServerCapabilities serverCapabilities,
-			List<McpServerFeatures.SyncToolSpecification> tools,
-			Map<String, McpServerFeatures.SyncResourceSpecification> resources,
-			List<McpSchema.ResourceTemplate> resourceTemplates,
-			Map<String, McpServerFeatures.SyncPromptSpecification> prompts,
-			Map<McpSchema.CompleteReference, McpServerFeatures.SyncCompletionSpecification> completions,
+			List<SyncToolSpecification> tools, Map<String, SyncResourceSpecification> resources,
+			List<McpSchema.ResourceTemplate> resourceTemplates, Map<String, SyncPromptSpecification> prompts,
+			Map<McpSchema.CompleteReference, SyncCompletionSpecification> completions,
 			List<BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>> rootsChangeConsumers, String instructions) {
 
 		/**
@@ -169,11 +165,9 @@ public class McpServerFeatures {
 		 * @param instructions The server instructions text
 		 */
 		Sync(McpSchema.Implementation serverInfo, McpSchema.ServerCapabilities serverCapabilities,
-				List<McpServerFeatures.SyncToolSpecification> tools,
-				Map<String, McpServerFeatures.SyncResourceSpecification> resources,
-				List<McpSchema.ResourceTemplate> resourceTemplates,
-				Map<String, McpServerFeatures.SyncPromptSpecification> prompts,
-				Map<McpSchema.CompleteReference, McpServerFeatures.SyncCompletionSpecification> completions,
+				List<SyncToolSpecification> tools, Map<String, SyncResourceSpecification> resources,
+				List<McpSchema.ResourceTemplate> resourceTemplates, Map<String, SyncPromptSpecification> prompts,
+				Map<McpSchema.CompleteReference, SyncCompletionSpecification> completions,
 				List<BiConsumer<McpSyncServerExchange, List<McpSchema.Root>>> rootsChangeConsumers,
 				String instructions) {
 
@@ -211,15 +205,14 @@ public class McpServerFeatures {
 	 * @param tool The tool definition including name, description, and parameter schema
 	 * @param call Deprecated. Uset he {@link AsyncToolSpecification#callHandler} instead.
 	 * @param callHandler The function that implements the tool's logic, receiving a
-	 * {@link McpAsyncServerExchange} and a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.CallToolRequest} and returning
-	 * results. The function's first argument is an {@link McpAsyncServerExchange} upon
-	 * which the server can interact with the connected client. The second arguments is a
-	 * map of tool arguments.
+	 * {@link McpAsyncServerExchange} and a {@link CallToolRequest} and returning results.
+	 * The function's first argument is an {@link McpAsyncServerExchange} upon which the
+	 * server can interact with the connected client. The second arguments is a map of
+	 * tool arguments.
 	 */
 	public record AsyncToolSpecification(McpSchema.Tool tool,
 			@Deprecated BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<McpSchema.CallToolResult>> call,
-			BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler) {
+			BiFunction<McpAsyncServerExchange, CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler) {
 
 		/**
 		 * @deprecated Use {@link AsyncToolSpecification(McpSchema.Tool, null,
@@ -249,8 +242,8 @@ public class McpServerFeatures {
 					return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
 				} : null;
 
-			BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler = (
-					exchange, req) -> {
+			BiFunction<McpAsyncServerExchange, CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler = (exchange,
+					req) -> {
 				var toolResult = Mono
 					.fromCallable(() -> syncToolSpec.callHandler().apply(new McpSyncServerExchange(exchange), req));
 				return immediate ? toolResult : toolResult.subscribeOn(Schedulers.boundedElastic());
@@ -266,7 +259,7 @@ public class McpServerFeatures {
 
 			private McpSchema.Tool tool;
 
-			private BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler;
+			private BiFunction<McpAsyncServerExchange, CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler;
 
 			/**
 			 * Sets the tool definition.
@@ -285,7 +278,7 @@ public class McpServerFeatures {
 			 * @return this builder instance
 			 */
 			public Builder callHandler(
-					BiFunction<McpAsyncServerExchange, McpSchema.CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler) {
+					BiFunction<McpAsyncServerExchange, CallToolRequest, Mono<McpSchema.CallToolResult>> callHandler) {
 				this.callHandler = callHandler;
 				return this;
 			}
@@ -338,7 +331,7 @@ public class McpServerFeatures {
 	 * @param readHandler The function that handles resource read requests. The function's
 	 * first argument is an {@link McpAsyncServerExchange} upon which the server can
 	 * interact with the connected client. The second arguments is a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest}.
+	 * {@link McpSchema.ReadResourceRequest}.
 	 */
 	public record AsyncResourceSpecification(McpSchema.Resource resource,
 			BiFunction<McpAsyncServerExchange, McpSchema.ReadResourceRequest, Mono<McpSchema.ReadResourceResult>> readHandler) {
@@ -384,8 +377,7 @@ public class McpServerFeatures {
 	 * @param promptHandler The function that processes prompt requests and returns
 	 * formatted templates. The function's first argument is an
 	 * {@link McpAsyncServerExchange} upon which the server can interact with the
-	 * connected client. The second arguments is a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.GetPromptRequest}.
+	 * connected client. The second arguments is a {@link McpSchema.GetPromptRequest}.
 	 */
 	public record AsyncPromptSpecification(McpSchema.Prompt prompt,
 			BiFunction<McpAsyncServerExchange, McpSchema.GetPromptRequest, Mono<McpSchema.GetPromptResult>> promptHandler) {
@@ -417,7 +409,7 @@ public class McpServerFeatures {
 	 * @param completionHandler The asynchronous function that processes completion
 	 * requests and returns results. The first argument is an
 	 * {@link McpAsyncServerExchange} used to interact with the client. The second
-	 * argument is a {@link io.modelcontextprotocol.spec.McpSchema.CompleteRequest}.
+	 * argument is a {@link McpSchema.CompleteRequest}.
 	 */
 	public record AsyncCompletionSpecification(McpSchema.CompleteReference referenceKey,
 			BiFunction<McpAsyncServerExchange, McpSchema.CompleteRequest, Mono<McpSchema.CompleteResult>> completionHandler) {
@@ -471,11 +463,10 @@ public class McpServerFeatures {
 	 * arguments and returning results. The function's first argument is an
 	 * {@link McpSyncServerExchange} upon which the server can interact with the connected
 	 * @param callHandler The function that implements the tool's logic, receiving a
-	 * {@link McpSyncServerExchange} and a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.CallToolRequest} and returning
-	 * results. The function's first argument is an {@link McpSyncServerExchange} upon
-	 * which the server can interact with the client. The second arguments is a map of
-	 * arguments passed to the tool.
+	 * {@link McpSyncServerExchange} and a {@link CallToolRequest} and returning results.
+	 * The function's first argument is an {@link McpSyncServerExchange} upon which the
+	 * server can interact with the client. The second arguments is a map of arguments
+	 * passed to the tool.
 	 */
 	public record SyncToolSpecification(McpSchema.Tool tool,
 			@Deprecated BiFunction<McpSyncServerExchange, Map<String, Object>, McpSchema.CallToolResult> call,
@@ -568,7 +559,7 @@ public class McpServerFeatures {
 	 * @param readHandler The function that handles resource read requests. The function's
 	 * first argument is an {@link McpSyncServerExchange} upon which the server can
 	 * interact with the connected client. The second arguments is a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest}.
+	 * {@link McpSchema.ReadResourceRequest}.
 	 */
 	public record SyncResourceSpecification(McpSchema.Resource resource,
 			BiFunction<McpSyncServerExchange, McpSchema.ReadResourceRequest, McpSchema.ReadResourceResult> readHandler) {
@@ -602,8 +593,7 @@ public class McpServerFeatures {
 	 * @param promptHandler The function that processes prompt requests and returns
 	 * formatted templates. The function's first argument is an
 	 * {@link McpSyncServerExchange} upon which the server can interact with the connected
-	 * client. The second arguments is a
-	 * {@link io.modelcontextprotocol.spec.McpSchema.GetPromptRequest}.
+	 * client. The second arguments is a {@link McpSchema.GetPromptRequest}.
 	 */
 	public record SyncPromptSpecification(McpSchema.Prompt prompt,
 			BiFunction<McpSyncServerExchange, McpSchema.GetPromptRequest, McpSchema.GetPromptResult> promptHandler) {
@@ -616,7 +606,7 @@ public class McpServerFeatures {
 	 * @param completionHandler The synchronous function that processes completion
 	 * requests and returns results. The first argument is an
 	 * {@link McpSyncServerExchange} used to interact with the client. The second argument
-	 * is a {@link io.modelcontextprotocol.spec.McpSchema.CompleteRequest}.
+	 * is a {@link McpSchema.CompleteRequest}.
 	 */
 	public record SyncCompletionSpecification(McpSchema.CompleteReference referenceKey,
 			BiFunction<McpSyncServerExchange, McpSchema.CompleteRequest, McpSchema.CompleteResult> completionHandler) {

@@ -4,6 +4,9 @@
 
 package io.modelcontextprotocol.client.transport;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -15,14 +18,13 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
 import io.modelcontextprotocol.util.Assert;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -345,7 +347,7 @@ public class StdioClientTransport implements McpClientTransport {
 	public Mono<Void> closeGracefully() {
 		return Mono.fromRunnable(() -> {
 			isClosing = true;
-			logger.debug("Initiating graceful shutdown");
+			logger.info("Initiating graceful shutdown");
 		}).then(Mono.<Void>defer(() -> {
 			// First complete all sinks to stop accepting new messages
 			inboundSink.tryEmitComplete();
@@ -355,7 +357,7 @@ public class StdioClientTransport implements McpClientTransport {
 			// Give a short time for any pending messages to be processed
 			return Mono.delay(Duration.ofMillis(100)).then();
 		})).then(Mono.defer(() -> {
-			logger.debug("Sending TERM to process");
+			logger.info("Sending TERM to process");
 			if (this.process != null) {
 				this.process.destroy();
 				return Mono.fromFuture(process.onExit());
@@ -379,7 +381,7 @@ public class StdioClientTransport implements McpClientTransport {
 				errorScheduler.dispose();
 				outboundScheduler.dispose();
 
-				logger.debug("Graceful shutdown completed");
+				logger.info("Graceful shutdown completed");
 			}
 			catch (Exception e) {
 				logger.error("Error during graceful shutdown", e);

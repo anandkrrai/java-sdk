@@ -1,16 +1,17 @@
 package io.modelcontextprotocol.spec;
 
-import org.reactivestreams.Publisher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+
+import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 
 /**
  * An implementation of {@link McpTransportStream} using Project Reactor types.
@@ -66,7 +67,7 @@ public class DefaultMcpTransportStream<CONNECTION> implements McpTransportStream
 		return Flux.deferContextual(ctx -> Flux.from(eventStream)
 			.doOnNext(idAndMessage -> idAndMessage.getT1().ifPresent(id -> {
 				String previousId = this.lastId.getAndSet(id);
-				logger.debug("Updating last id {} -> {} for stream {}", previousId, id, this.streamId);
+				logger.info("Updating last id {} -> {} for stream {}", previousId, id, this.streamId);
 			}))
 			.doOnError(e -> {
 				if (resumable && !(e instanceof McpTransportSessionNotFoundException)) {

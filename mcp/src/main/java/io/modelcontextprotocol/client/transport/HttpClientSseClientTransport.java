@@ -3,6 +3,9 @@
  */
 package io.modelcontextprotocol.client.transport;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,9 +19,6 @@ import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.modelcontextprotocol.client.transport.ResponseSubscribers.ResponseEvent;
 import io.modelcontextprotocol.spec.McpClientTransport;
@@ -57,7 +57,7 @@ import reactor.core.publisher.Sinks;
  *
  * @author Christian Tzolov
  * @see io.modelcontextprotocol.spec.McpTransport
- * @see io.modelcontextprotocol.spec.McpClientTransport
+ * @see McpClientTransport
  */
 public class HttpClientSseClientTransport implements McpClientTransport {
 
@@ -70,7 +70,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	private static final String ENDPOINT_EVENT_TYPE = "endpoint";
 
 	/** Default SSE endpoint path */
-	private static final String DEFAULT_SSE_ENDPOINT = "/sse";
+	private static final String DEFAULT_SSE_ENDPOINT = "/mcp";
 
 	/** Base URI for the MCP server */
 	private final URI baseUri;
@@ -377,8 +377,7 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 							sink.error(new McpError("Error processing SSE event"));
 						}
 					}
-					return Flux.<McpSchema.JSONRPCMessage>error(
-							new RuntimeException("Failed to send message: " + responseEvent));
+					return Flux.<JSONRPCMessage>error(new RuntimeException("Failed to send message: " + responseEvent));
 
 				})
 				.flatMap(jsonRpcMessage -> handler.apply(Mono.just(jsonRpcMessage)))
@@ -415,7 +414,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 	@Override
 	public Mono<Void> sendMessage(JSONRPCMessage message) {
 
+		logger.info("Sending message: {}", message);
+
 		return this.messageEndpointSink.asMono().flatMap(messageEndpointUri -> {
+			logger.info("Sending message messageEndpointUri: {}", messageEndpointUri);
 			if (isClosing) {
 				return Mono.empty();
 			}
@@ -459,6 +461,10 @@ public class HttpClientSseClientTransport implements McpClientTransport {
 			.uri(requestUri)
 			.POST(HttpRequest.BodyPublishers.ofString(body))
 			.build();
+
+		logger.info("Sending endpoint: {}, body :{}", requestUri, body);
+		logger.info("Sending request to: {}", requestUri);
+		logger.info("Sending request: {}", request);
 
 		// TODO: why discard the body?
 		return Mono.fromFuture(httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()));

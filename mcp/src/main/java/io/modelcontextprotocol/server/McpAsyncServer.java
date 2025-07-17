@@ -4,6 +4,9 @@
 
 package io.modelcontextprotocol.server;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,9 +20,6 @@ import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.modelcontextprotocol.spec.JsonSchemaValidator;
 import io.modelcontextprotocol.spec.McpClientSession;
@@ -100,7 +100,7 @@ public class McpAsyncServer {
 
 	private final CopyOnWriteArrayList<McpServerFeatures.AsyncToolSpecification> tools = new CopyOnWriteArrayList<>();
 
-	private final CopyOnWriteArrayList<McpSchema.ResourceTemplate> resourceTemplates = new CopyOnWriteArrayList<>();
+	private final CopyOnWriteArrayList<ResourceTemplate> resourceTemplates = new CopyOnWriteArrayList<>();
 
 	private final ConcurrentHashMap<String, McpServerFeatures.AsyncResourceSpecification> resources = new ConcurrentHashMap<>();
 
@@ -303,7 +303,7 @@ public class McpAsyncServer {
 			}
 
 			this.tools.add(wrappedToolSpecification);
-			logger.debug("Added tool handler: {}", wrappedToolSpecification.tool().name());
+			logger.info("Added tool handler: {}", wrappedToolSpecification.tool().name());
 
 			if (this.serverCapabilities.tools().listChanged()) {
 				return notifyToolsListChanged();
@@ -313,9 +313,9 @@ public class McpAsyncServer {
 	}
 
 	private static class StructuredOutputCallToolHandler
-			implements BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<McpSchema.CallToolResult>> {
+			implements BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<CallToolResult>> {
 
-		private final BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<McpSchema.CallToolResult>> delegateCallToolResult;
+		private final BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<CallToolResult>> delegateCallToolResult;
 
 		private final JsonSchemaValidator jsonSchemaValidator;
 
@@ -323,7 +323,7 @@ public class McpAsyncServer {
 
 		public StructuredOutputCallToolHandler(JsonSchemaValidator jsonSchemaValidator,
 				Map<String, Object> outputSchema,
-				BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<McpSchema.CallToolResult>> delegateHandler) {
+				BiFunction<McpAsyncServerExchange, Map<String, Object>, Mono<CallToolResult>> delegateHandler) {
 
 			Assert.notNull(jsonSchemaValidator, "JsonSchemaValidator must not be null");
 			Assert.notNull(delegateHandler, "Delegate call tool result handler must not be null");
@@ -430,7 +430,7 @@ public class McpAsyncServer {
 			boolean removed = this.tools
 				.removeIf(toolSpecification -> toolSpecification.tool().name().equals(toolName));
 			if (removed) {
-				logger.debug("Removed tool handler: {}", toolName);
+				logger.info("Removed tool handler: {}", toolName);
 				if (this.serverCapabilities.tools().listChanged()) {
 					return notifyToolsListChanged();
 				}
@@ -498,7 +498,7 @@ public class McpAsyncServer {
 				return Mono.error(new McpError(
 						"Resource with URI '" + resourceSpecification.resource().uri() + "' already exists"));
 			}
-			logger.debug("Added resource handler: {}", resourceSpecification.resource().uri());
+			logger.info("Added resource handler: {}", resourceSpecification.resource().uri());
 			if (this.serverCapabilities.resources().listChanged()) {
 				return notifyResourcesListChanged();
 			}
@@ -522,7 +522,7 @@ public class McpAsyncServer {
 		return Mono.defer(() -> {
 			McpServerFeatures.AsyncResourceSpecification removed = this.resources.remove(resourceUri);
 			if (removed != null) {
-				logger.debug("Removed resource handler: {}", resourceUri);
+				logger.info("Removed resource handler: {}", resourceUri);
 				if (this.serverCapabilities.resources().listChanged()) {
 					return notifyResourcesListChanged();
 				}
@@ -565,14 +565,14 @@ public class McpAsyncServer {
 
 	}
 
-	private List<McpSchema.ResourceTemplate> getResourceTemplates() {
+	private List<ResourceTemplate> getResourceTemplates() {
 		var list = new ArrayList<>(this.resourceTemplates);
 		List<ResourceTemplate> resourceTemplates = this.resources.keySet()
 			.stream()
 			.filter(uri -> uri.contains("{"))
 			.map(uri -> {
 				var resource = this.resources.get(uri).resource();
-				var template = new McpSchema.ResourceTemplate(resource.uri(), resource.name(), resource.title(),
+				var template = new ResourceTemplate(resource.uri(), resource.name(), resource.title(),
 						resource.description(), resource.mimeType(), resource.annotations());
 				return template;
 			})
@@ -627,7 +627,7 @@ public class McpAsyncServer {
 						new McpError("Prompt with name '" + promptSpecification.prompt().name() + "' already exists"));
 			}
 
-			logger.debug("Added prompt handler: {}", promptSpecification.prompt().name());
+			logger.info("Added prompt handler: {}", promptSpecification.prompt().name());
 
 			// Servers that declared the listChanged capability SHOULD send a
 			// notification,
@@ -656,7 +656,7 @@ public class McpAsyncServer {
 			McpServerFeatures.AsyncPromptSpecification removed = this.prompts.remove(promptName);
 
 			if (removed != null) {
-				logger.debug("Removed prompt handler: {}", promptName);
+				logger.info("Removed prompt handler: {}", promptName);
 				// Servers that declared the listChanged capability SHOULD send a
 				// notification, when the list of available prompts changes
 				if (this.serverCapabilities.prompts().listChanged()) {

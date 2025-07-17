@@ -4,6 +4,9 @@
 
 package io.modelcontextprotocol.client.transport;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,9 +24,6 @@ import java.util.function.Function;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.modelcontextprotocol.client.transport.ResponseSubscribers.ResponseEvent;
 import io.modelcontextprotocol.spec.DefaultMcpTransportSession;
@@ -72,7 +72,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 	private static final Logger logger = LoggerFactory.getLogger(HttpClientStreamableHttpTransport.class);
 
-	private static final String DEFAULT_ENDPOINT = "/mcp";
+	private static final String DEFAULT_ENDPOINT = "/mcp/";
 
 	/**
 	 * HTTP client for sending messages to the server. Uses HTTP POST over the message
@@ -137,7 +137,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 		return Mono.deferContextual(ctx -> {
 			this.handler.set(handler);
 			if (this.openConnectionOnStartup) {
-				logger.debug("Eagerly opening connection on startup");
+				logger.info("Eagerly opening connection on startup");
 				return this.reconnect(null).onErrorComplete(t -> {
 					logger.warn("Eager connect failed ", t);
 					return true;
@@ -166,12 +166,12 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 	@Override
 	public void setExceptionHandler(Consumer<Throwable> handler) {
-		logger.debug("Exception handler registered");
+		logger.info("Exception handler registered");
 		this.exceptionHandler.set(handler);
 	}
 
 	private void handleException(Throwable t) {
-		logger.debug("Handling exception for session {}", sessionIdOrPlaceholder(this.activeSession.get()), t);
+		logger.info("Handling exception for session {}", sessionIdOrPlaceholder(this.activeSession.get()), t);
 		if (t instanceof McpTransportSessionNotFoundException) {
 			McpTransportSession<?> invalidSession = this.activeSession.getAndSet(createTransportSession());
 			logger.warn("Server does not recognize session {}. Invalidating.", invalidSession.sessionId());
@@ -186,7 +186,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 	@Override
 	public Mono<Void> closeGracefully() {
 		return Mono.defer(() -> {
-			logger.debug("Graceful close triggered");
+			logger.info("Graceful close triggered");
 			DefaultMcpTransportSession currentSession = this.activeSession.getAndSet(createTransportSession());
 			if (currentSession != null) {
 				return currentSession.closeGracefully();
@@ -200,10 +200,10 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 		return Mono.deferContextual(ctx -> {
 
 			if (stream != null) {
-				logger.debug("Reconnecting stream {} with lastId {}", stream.streamId(), stream.lastId());
+				logger.info("Reconnecting stream {} with lastId {}", stream.streamId(), stream.lastId());
 			}
 			else {
-				logger.debug("Reconnecting with no prior stream");
+				logger.info("Reconnecting with no prior stream");
 			}
 
 			final AtomicReference<Disposable> disposableRef = new AtomicReference<>();
@@ -219,6 +219,8 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 				requestBuilder = requestBuilder.header("last-event-id", stream.lastId().get());
 			}
 
+			logger.info("this.endpoint : {} ", this.endpoint);
+
 			HttpRequest request = requestBuilder.uri(Utils.resolveUri(this.baseUri, this.endpoint))
 				.header("Accept", TEXT_EVENT_STREAM)
 				.header("Cache-Control", "no-cache")
@@ -232,7 +234,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 						sseSink.error(throwable);
 					}
 					else {
-						logger.debug("SSE connection established successfully");
+						logger.info("SSE connection established successfully");
 					}
 				}))
 				.map(responseEvent -> (ResponseSubscribers.SseResponseEvent) responseEvent)
@@ -254,7 +256,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 								McpTransportStream<Disposable> sessionStream = stream != null ? stream
 										: new DefaultMcpTransportStream<>(this.resumableStreams, this::reconnect);
-								logger.debug("Connected stream {}", sessionStream.streamId());
+								logger.info("Connected stream {}", sessionStream.streamId());
 
 								return Flux.from(sessionStream.consumeSseStream(Flux.just(idWithMessages)));
 
@@ -266,7 +268,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 						}
 					}
 					else if (statusCode == METHOD_NOT_ALLOWED) { // NotAllowed
-						logger.debug("The server does not support SSE streams, using request-response mode.");
+						logger.info("The server does not support SSE streams, using request-response mode.");
 						return Flux.empty();
 					}
 					else if (statusCode == NOT_FOUND) {
@@ -316,19 +318,20 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 			if (contentType.contains(TEXT_EVENT_STREAM)) {
 				// For SSE streams, use line subscriber that returns Void
-				logger.debug("Received SSE stream response, using line subscriber");
+				logger.info("Received SSE stream response, using line subscriber");
 				return ResponseSubscribers.sseToBodySubscriber(responseInfo, sink);
 			}
 			else if (contentType.contains(APPLICATION_JSON)) {
 				// For JSON responses and others, use string subscriber
-				logger.debug("Received response, using string subscriber");
+				logger.info("Received response, using string subscriber");
 				return ResponseSubscribers.aggregateBodySubscriber(responseInfo, sink);
 			}
 
-			logger.debug("Received Bodyless response, using discarding subscriber");
+			logger.info("Received Bodyless response, using discarding subscriber");
 			return ResponseSubscribers.bodilessBodySubscriber(responseInfo, sink);
 		};
 
+		logger.info("response body handler {}", responseBodyHandler.toString());
 		return responseBodyHandler;
 
 	}
@@ -344,13 +347,20 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 	public Mono<Void> sendMessage(McpSchema.JSONRPCMessage sendMessage) {
 		return Mono.create(messageSink -> {
-			logger.debug("Sending message {}", sendMessage);
+			logger.info("Sending message {}", sendMessage);
 
 			final AtomicReference<Disposable> disposableRef = new AtomicReference<>();
 			final McpTransportSession<Disposable> transportSession = this.activeSession.get();
 
+			logger.info("transportSession {}", transportSession.sessionId());
 			HttpRequest.Builder requestBuilder = this.requestBuilder.copy();
+			logger.info("request builder {}", requestBuilder);
 
+			logger.info("this.baseUri : {} ", this.baseUri);
+			logger.info("this.endpoint : {} ", this.endpoint);
+			logger.info("this.baseUri.toString()+ this.endpoint : {} ", this.baseUri.toString() + this.endpoint);
+
+			logger.info("Sending sessionId {}", transportSession.sessionId().isPresent());
 			if (transportSession != null && transportSession.sessionId().isPresent()) {
 				requestBuilder = requestBuilder.header("mcp-session-id", transportSession.sessionId().get());
 			}
@@ -360,24 +370,33 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 			HttpRequest request = requestBuilder.uri(Utils.resolveUri(this.baseUri, this.endpoint))
 				.header("Accept", TEXT_EVENT_STREAM + ", " + APPLICATION_JSON)
 				.header("Content-Type", APPLICATION_JSON)
-				.header("Cache-Control", "no-cache")
+				// .header("Cache-Control", "no-cache")
 				.POST(HttpRequest.BodyPublishers.ofString(jsonBody))
 				.build();
+
+			logger.info("Sending request {}", request);
+			logger.info("Sending request uri {}", request.uri());
+			logger.info("Sending request headers {}", request.headers());
+			logger.info("Sending request body {}", request.bodyPublisher().toString());
+			logger.info("Sending request jsonBody {}", jsonBody);
 
 			Disposable connection = Flux.<ResponseEvent>create(responseEventSink -> {
 
 				// Create the async request with proper body subscriber selection
+				// httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
 				Mono.fromFuture(this.httpClient.sendAsync(request, this.toSendMessageBodySubscriber(responseEventSink))
 					.whenComplete((response, throwable) -> {
 						if (throwable != null) {
 							responseEventSink.error(throwable);
 						}
 						else {
-							logger.debug("SSE connection established successfully");
+							logger.info("Streamable connection established successfully");
 						}
 					})).onErrorMap(CompletionException.class, t -> t.getCause()).onErrorComplete().subscribe();
 
 			}).flatMap(responseEvent -> {
+				logger.info("responseEvent.responseInfo().headers() : {}", responseEvent.responseInfo().headers());
+				logger.info("responseEvent.responseInfo() : {}", responseEvent.responseInfo());
 				if (transportSession.markInitialized(
 						responseEvent.responseInfo().headers().firstValue("mcp-session-id").orElseGet(() -> null))) {
 					// Once we have a session, we try to open an async stream for
@@ -399,7 +418,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 						.toLowerCase();
 
 					if (contentType.isBlank()) {
-						logger.debug("No content type returned for POST in session {}", sessionRepresentation);
+						logger.info("No content type returned for POST in session {}", sessionRepresentation);
 						// No content type means no response body, so we can just return
 						// an empty stream
 						messageSink.success();
@@ -421,7 +440,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 									McpTransportStream<Disposable> sessionStream = new DefaultMcpTransportStream<>(
 											this.resumableStreams, this::reconnect);
 
-									logger.debug("Connected stream {}", sessionStream.streamId());
+									logger.info("Connected stream {}", sessionStream.streamId());
 
 									messageSink.success();
 
@@ -477,7 +496,7 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 					return true;
 				})
 				.doFinally(s -> {
-					logger.debug("SendMessage finally: {}", s);
+					logger.info("SendMessage finally: {}", s);
 					Disposable ref = disposableRef.getAndSet(null);
 					if (ref != null) {
 						transportSession.removeConnection(ref);
@@ -489,6 +508,21 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 			disposableRef.set(connection);
 			transportSession.addConnection(connection);
 		});
+	}
+
+	private Mono<HttpResponse<String>> sendHttpPost(final String endpoint, final String body) {
+		final URI requestUri = Utils.resolveUri(this.baseUri, endpoint);
+		final HttpRequest request = this.requestBuilder.copy()
+			.uri(requestUri)
+			.POST(HttpRequest.BodyPublishers.ofString(body))
+			.build();
+
+		logger.info("Sending endpoint: {}, body :{}", requestUri, body);
+		logger.info("Sending request to: {}", requestUri);
+		logger.info("Sending request: {}", request);
+
+		// TODO: why discard the body?
+		return Mono.fromFuture(httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
 	}
 
 	private static String sessionIdOrPlaceholder(McpTransportSession<?> transportSession) {

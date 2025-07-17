@@ -3,6 +3,9 @@
  */
 package io.modelcontextprotocol.server.transport;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -11,8 +14,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerSession;
@@ -25,8 +29,6 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -162,11 +164,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	@Override
 	public Mono<Void> notifyClients(String method, Object params) {
 		if (sessions.isEmpty()) {
-			logger.debug("No active sessions to broadcast message to");
+			logger.info("No active sessions to broadcast message to");
 			return Mono.empty();
 		}
 
-		logger.debug("Attempting to broadcast message to {} active sessions", sessions.size());
+		logger.info("Attempting to broadcast message to {} active sessions", sessions.size());
 
 		return Flux.fromIterable(sessions.values())
 			.flatMap(session -> session.sendNotification(method, params)
@@ -322,7 +324,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 	@Override
 	public Mono<Void> closeGracefully() {
 		isClosing.set(true);
-		logger.debug("Initiating graceful shutdown with {} active sessions", sessions.size());
+		logger.info("Initiating graceful shutdown with {} active sessions", sessions.size());
 
 		return Flux.fromIterable(sessions.values()).flatMap(McpServerSession::closeGracefully).then();
 	}
@@ -378,7 +380,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			this.sessionId = sessionId;
 			this.asyncContext = asyncContext;
 			this.writer = writer;
-			logger.debug("Session transport {} initialized with SSE writer", sessionId);
+			logger.info("Session transport {} initialized with SSE writer", sessionId);
 		}
 
 		/**
@@ -392,7 +394,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 				try {
 					String jsonText = objectMapper.writeValueAsString(message);
 					sendEvent(writer, MESSAGE_EVENT_TYPE, jsonText);
-					logger.debug("Message sent to session {}", sessionId);
+					logger.info("Message sent to session {}", sessionId);
 				}
 				catch (Exception e) {
 					logger.error("Failed to send message to session {}: {}", sessionId, e.getMessage());
@@ -421,11 +423,11 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 		@Override
 		public Mono<Void> closeGracefully() {
 			return Mono.fromRunnable(() -> {
-				logger.debug("Closing session transport: {}", sessionId);
+				logger.info("Closing session transport: {}", sessionId);
 				try {
 					sessions.remove(sessionId);
 					asyncContext.complete();
-					logger.debug("Successfully completed async context for session {}", sessionId);
+					logger.info("Successfully completed async context for session {}", sessionId);
 				}
 				catch (Exception e) {
 					logger.warn("Failed to complete async context for session {}: {}", sessionId, e.getMessage());
@@ -441,7 +443,7 @@ public class HttpServletSseServerTransportProvider extends HttpServlet implement
 			try {
 				sessions.remove(sessionId);
 				asyncContext.complete();
-				logger.debug("Successfully completed async context for session {}", sessionId);
+				logger.info("Successfully completed async context for session {}", sessionId);
 			}
 			catch (Exception e) {
 				logger.warn("Failed to complete async context for session {}: {}", sessionId, e.getMessage());

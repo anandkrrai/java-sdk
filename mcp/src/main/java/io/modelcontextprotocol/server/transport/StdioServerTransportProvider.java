@@ -4,6 +4,9 @@
 
 package io.modelcontextprotocol.server.transport;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,8 +17,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.JSONRPCMessage;
@@ -23,8 +27,6 @@ import io.modelcontextprotocol.spec.McpServerSession;
 import io.modelcontextprotocol.spec.McpServerTransport;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import io.modelcontextprotocol.util.Assert;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -145,7 +147,7 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 		}
 
 		@Override
-		public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
+		public Mono<Void> sendMessage(JSONRPCMessage message) {
 
 			return Mono.zip(inboundReady.asMono(), outboundReady.asMono()).then(Mono.defer(() -> {
 				if (outboundSink.tryEmitNext(message).isSuccess()) {
@@ -166,7 +168,7 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 		public Mono<Void> closeGracefully() {
 			return Mono.fromRunnable(() -> {
 				isClosing.set(true);
-				logger.debug("Session transport closing gracefully");
+				logger.info("Session transport closing gracefully");
 				inboundSink.tryEmitComplete();
 			});
 		}
@@ -174,7 +176,7 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 		@Override
 		public void close() {
 			isClosing.set(true);
-			logger.debug("Session transport closed");
+			logger.info("Session transport closed");
 		}
 
 		private void initProcessing() {
@@ -209,11 +211,10 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 									break;
 								}
 
-								logger.debug("Received JSON message: {}", line);
+								logger.info("Received JSON message: {}", line);
 
 								try {
-									McpSchema.JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(objectMapper,
-											line);
+									JSONRPCMessage message = McpSchema.deserializeJsonRpcMessage(objectMapper, line);
 									if (!this.inboundSink.tryEmitNext(message).isSuccess()) {
 										// logIfNotClosing("Failed to enqueue message");
 										break;
@@ -273,7 +274,7 @@ public class StdioServerTransportProvider implements McpServerTransportProvider 
 								 sink.error(new RuntimeException(e));
 							 }
 							 else {
-								 logger.debug("Stream closed during shutdown", e);
+								 logger.info("Stream closed during shutdown", e);
 							 }
 						 }
 					 }

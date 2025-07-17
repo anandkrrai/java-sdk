@@ -3,6 +3,8 @@
  */
 package io.modelcontextprotocol.client;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,9 +17,9 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-
 import io.modelcontextprotocol.spec.McpClientSession;
+import io.modelcontextprotocol.spec.McpClientSession.NotificationHandler;
+import io.modelcontextprotocol.spec.McpClientSession.RequestHandler;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -33,8 +35,6 @@ import io.modelcontextprotocol.spec.McpSchema.LoggingLevel;
 import io.modelcontextprotocol.spec.McpSchema.LoggingMessageNotification;
 import io.modelcontextprotocol.spec.McpSchema.PaginatedRequest;
 import io.modelcontextprotocol.spec.McpSchema.Root;
-import io.modelcontextprotocol.spec.McpClientSession.NotificationHandler;
-import io.modelcontextprotocol.spec.McpClientSession.RequestHandler;
 import io.modelcontextprotocol.util.Assert;
 import io.modelcontextprotocol.util.Utils;
 import reactor.core.publisher.Flux;
@@ -103,7 +103,7 @@ public class McpAsyncClient {
 	/**
 	 * Client capabilities.
 	 */
-	private final McpSchema.ClientCapabilities clientCapabilities;
+	private final ClientCapabilities clientCapabilities;
 
 	/**
 	 * Client implementation information.
@@ -202,7 +202,7 @@ public class McpAsyncClient {
 		// Tools Change Notification
 		List<Function<List<McpSchema.Tool>, Mono<Void>>> toolsChangeConsumersFinal = new ArrayList<>();
 		toolsChangeConsumersFinal
-			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Tools changed: {}", notification)));
+			.add((notification) -> Mono.fromRunnable(() -> logger.info("Tools changed: {}", notification)));
 
 		if (!Utils.isEmpty(features.toolsChangeConsumers())) {
 			toolsChangeConsumersFinal.addAll(features.toolsChangeConsumers());
@@ -213,7 +213,7 @@ public class McpAsyncClient {
 		// Resources Change Notification
 		List<Function<List<McpSchema.Resource>, Mono<Void>>> resourcesChangeConsumersFinal = new ArrayList<>();
 		resourcesChangeConsumersFinal
-			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Resources changed: {}", notification)));
+			.add((notification) -> Mono.fromRunnable(() -> logger.info("Resources changed: {}", notification)));
 
 		if (!Utils.isEmpty(features.resourcesChangeConsumers())) {
 			resourcesChangeConsumersFinal.addAll(features.resourcesChangeConsumers());
@@ -225,7 +225,7 @@ public class McpAsyncClient {
 		// Resources Update Notification
 		List<Function<List<McpSchema.ResourceContents>, Mono<Void>>> resourcesUpdateConsumersFinal = new ArrayList<>();
 		resourcesUpdateConsumersFinal
-			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Resources updated: {}", notification)));
+			.add((notification) -> Mono.fromRunnable(() -> logger.info("Resources updated: {}", notification)));
 
 		if (!Utils.isEmpty(features.resourcesUpdateConsumers())) {
 			resourcesUpdateConsumersFinal.addAll(features.resourcesUpdateConsumers());
@@ -237,7 +237,7 @@ public class McpAsyncClient {
 		// Prompts Change Notification
 		List<Function<List<McpSchema.Prompt>, Mono<Void>>> promptsChangeConsumersFinal = new ArrayList<>();
 		promptsChangeConsumersFinal
-			.add((notification) -> Mono.fromRunnable(() -> logger.debug("Prompts changed: {}", notification)));
+			.add((notification) -> Mono.fromRunnable(() -> logger.info("Prompts changed: {}", notification)));
 		if (!Utils.isEmpty(features.promptsChangeConsumers())) {
 			promptsChangeConsumersFinal.addAll(features.promptsChangeConsumers());
 		}
@@ -246,7 +246,7 @@ public class McpAsyncClient {
 
 		// Utility Logging Notification
 		List<Function<LoggingMessageNotification, Mono<Void>>> loggingConsumersFinal = new ArrayList<>();
-		loggingConsumersFinal.add((notification) -> Mono.fromRunnable(() -> logger.debug("Logging: {}", notification)));
+		loggingConsumersFinal.add((notification) -> Mono.fromRunnable(() -> logger.info("Logging: {}", notification)));
 		if (!Utils.isEmpty(features.loggingConsumers())) {
 			loggingConsumersFinal.addAll(features.loggingConsumers());
 		}
@@ -400,7 +400,7 @@ public class McpAsyncClient {
 
 		this.roots.put(root.uri(), root);
 
-		logger.debug("Added root: {}", root);
+		logger.info("Added root: {}", root);
 
 		if (this.clientCapabilities.roots().listChanged()) {
 			if (this.isInitialized()) {
@@ -431,7 +431,7 @@ public class McpAsyncClient {
 		Root removed = this.roots.remove(rootUri);
 
 		if (removed != null) {
-			logger.debug("Removed Root: {}", rootUri);
+			logger.info("Removed Root: {}", rootUri);
 			if (this.clientCapabilities.roots().listChanged()) {
 				if (this.isInitialized()) {
 					return this.rootsListChangedNotification();
@@ -460,7 +460,7 @@ public class McpAsyncClient {
 	private RequestHandler<McpSchema.ListRootsResult> rootsListRequestHandler() {
 		return params -> {
 			@SuppressWarnings("unused")
-			McpSchema.PaginatedRequest request = transport.unmarshalFrom(params, PAGINATED_REQUEST_TYPE_REF);
+			PaginatedRequest request = transport.unmarshalFrom(params, PAGINATED_REQUEST_TYPE_REF);
 
 			List<Root> roots = this.roots.values().stream().toList();
 
@@ -473,7 +473,7 @@ public class McpAsyncClient {
 	// --------------------------
 	private RequestHandler<CreateMessageResult> samplingCreateMessageHandler() {
 		return params -> {
-			McpSchema.CreateMessageRequest request = transport.unmarshalFrom(params, CREATE_MESSAGE_REQUEST_TYPE_REF);
+			CreateMessageRequest request = transport.unmarshalFrom(params, CREATE_MESSAGE_REQUEST_TYPE_REF);
 
 			return this.samplingHandler.apply(request);
 		};
@@ -541,13 +541,19 @@ public class McpAsyncClient {
 	 * @return A Mono that emits the list of tools result
 	 */
 	public Mono<McpSchema.ListToolsResult> listTools(String cursor) {
+		McpSchema.InitializeRequest initializeRequest = new McpSchema.InitializeRequest("2025-06-18",
+				this.clientCapabilities, this.clientInfo);
+
 		return this.initializer.withIntitialization("listing tools", init -> {
 			if (init.initializeResult().capabilities().tools() == null) {
 				return Mono.error(new McpError("Server does not provide tools capability"));
 			}
+			// return init.mcpSession()
+			// .sendRequest(McpSchema.METHOD_TOOLS_LIST, new
+			// McpSchema.PaginatedRequest(cursor),
+			// LIST_TOOLS_RESULT_TYPE_REF);
 			return init.mcpSession()
-				.sendRequest(McpSchema.METHOD_TOOLS_LIST, new McpSchema.PaginatedRequest(cursor),
-						LIST_TOOLS_RESULT_TYPE_REF);
+				.sendRequest(McpSchema.METHOD_TOOLS_LIST, initializeRequest, LIST_TOOLS_RESULT_TYPE_REF);
 		});
 	}
 
@@ -610,7 +616,7 @@ public class McpAsyncClient {
 				return Mono.error(new McpError("Server does not provide the resources capability"));
 			}
 			return init.mcpSession()
-				.sendRequest(McpSchema.METHOD_RESOURCES_LIST, new McpSchema.PaginatedRequest(cursor),
+				.sendRequest(McpSchema.METHOD_RESOURCES_LIST, new PaginatedRequest(cursor),
 						LIST_RESOURCES_RESULT_TYPE_REF);
 		});
 	}
@@ -680,7 +686,7 @@ public class McpAsyncClient {
 				return Mono.error(new McpError("Server does not provide the resources capability"));
 			}
 			return init.mcpSession()
-				.sendRequest(McpSchema.METHOD_RESOURCES_TEMPLATES_LIST, new McpSchema.PaginatedRequest(cursor),
+				.sendRequest(McpSchema.METHOD_RESOURCES_TEMPLATES_LIST, new PaginatedRequest(cursor),
 						LIST_RESOURCE_TEMPLATES_RESULT_TYPE_REF);
 		});
 	}
@@ -745,16 +751,16 @@ public class McpAsyncClient {
 	// --------------------------
 	// Prompts
 	// --------------------------
-	private static final TypeReference<McpSchema.ListPromptsResult> LIST_PROMPTS_RESULT_TYPE_REF = new TypeReference<>() {
+	private static final TypeReference<ListPromptsResult> LIST_PROMPTS_RESULT_TYPE_REF = new TypeReference<>() {
 	};
 
-	private static final TypeReference<McpSchema.GetPromptResult> GET_PROMPT_RESULT_TYPE_REF = new TypeReference<>() {
+	private static final TypeReference<GetPromptResult> GET_PROMPT_RESULT_TYPE_REF = new TypeReference<>() {
 	};
 
 	/**
 	 * Retrieves the list of all prompts provided by the server.
 	 * @return A Mono that completes with the list of all prompts result.
-	 * @see McpSchema.ListPromptsResult
+	 * @see ListPromptsResult
 	 * @see #getPrompt(GetPromptRequest)
 	 */
 	public Mono<ListPromptsResult> listPrompts() {
@@ -764,14 +770,14 @@ public class McpAsyncClient {
 				allPromptsResult.prompts().addAll(result.prompts());
 				return allPromptsResult;
 			})
-			.map(result -> new McpSchema.ListPromptsResult(Collections.unmodifiableList(result.prompts()), null));
+			.map(result -> new ListPromptsResult(Collections.unmodifiableList(result.prompts()), null));
 	}
 
 	/**
 	 * Retrieves a paginated list of prompts provided by the server.
 	 * @param cursor Optional pagination cursor from a previous list request
 	 * @return A Mono that completes with the list of prompts result.
-	 * @see McpSchema.ListPromptsResult
+	 * @see ListPromptsResult
 	 * @see #getPrompt(GetPromptRequest)
 	 */
 	public Mono<ListPromptsResult> listPrompts(String cursor) {
@@ -784,8 +790,8 @@ public class McpAsyncClient {
 	 * including all parameters and instructions for generating AI content.
 	 * @param getPromptRequest The request containing the ID of the prompt to retrieve.
 	 * @return A Mono that completes with the prompt result.
-	 * @see McpSchema.GetPromptRequest
-	 * @see McpSchema.GetPromptResult
+	 * @see GetPromptRequest
+	 * @see GetPromptResult
 	 * @see #listPrompts()
 	 */
 	public Mono<GetPromptResult> getPrompt(GetPromptRequest getPromptRequest) {
@@ -819,7 +825,7 @@ public class McpAsyncClient {
 			List<Function<LoggingMessageNotification, Mono<Void>>> loggingConsumers) {
 
 		return params -> {
-			McpSchema.LoggingMessageNotification loggingMessageNotification = transport.unmarshalFrom(params,
+			LoggingMessageNotification loggingMessageNotification = transport.unmarshalFrom(params,
 					LOGGING_MESSAGE_NOTIFICATION_TYPE_REF);
 
 			return Flux.fromIterable(loggingConsumers)
@@ -833,7 +839,7 @@ public class McpAsyncClient {
 	 * will only receive log messages at or above the specified severity level.
 	 * @param loggingLevel The minimum logging level to receive.
 	 * @return A Mono that completes when the logging level is set.
-	 * @see McpSchema.LoggingLevel
+	 * @see LoggingLevel
 	 */
 	public Mono<Void> setLoggingLevel(LoggingLevel loggingLevel) {
 		if (loggingLevel == null) {

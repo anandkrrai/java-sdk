@@ -4,16 +4,6 @@
 
 package io.modelcontextprotocol.spec;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -23,6 +13,16 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.modelcontextprotocol.util.Assert;
 
@@ -44,7 +44,7 @@ public final class McpSchema {
 	private McpSchema() {
 	}
 
-	public static final String LATEST_PROTOCOL_VERSION = "2024-11-05";
+	public static final String LATEST_PROTOCOL_VERSION = "2025-06-18";
 
 	public static final String JSONRPC_VERSION = "2.0";
 
@@ -191,7 +191,7 @@ public final class McpSchema {
 	public static JSONRPCMessage deserializeJsonRpcMessage(ObjectMapper objectMapper, String jsonText)
 			throws IOException {
 
-		logger.debug("Received JSON message: {}", jsonText);
+		logger.info("Received JSON message: {}", jsonText);
 
 		var map = objectMapper.readValue(jsonText, MAP_TYPE_REF);
 
@@ -2307,7 +2307,7 @@ public final class McpSchema {
 	public record PromptReference( // @formatter:off
 		@JsonProperty("type") String type,
 		@JsonProperty("name") String name,
-		@JsonProperty("title") String title ) implements McpSchema.CompleteReference, BaseMetadata { // @formatter:on
+		@JsonProperty("title") String title ) implements CompleteReference, BaseMetadata { // @formatter:on
 
 		public PromptReference(String type, String name) {
 			this(type, name, null);
@@ -2333,7 +2333,7 @@ public final class McpSchema {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record ResourceReference( // @formatter:off
 		@JsonProperty("type") String type,
-		@JsonProperty("uri") String uri) implements McpSchema.CompleteReference { // @formatter:on
+		@JsonProperty("uri") String uri) implements CompleteReference { // @formatter:on
 
 		public ResourceReference(String uri) {
 			this("ref/resource", uri);
@@ -2356,20 +2356,20 @@ public final class McpSchema {
 	@JsonInclude(JsonInclude.Include.NON_ABSENT)
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record CompleteRequest( // @formatter:off
-		@JsonProperty("ref") McpSchema.CompleteReference ref,
+		@JsonProperty("ref") CompleteReference ref,
 		@JsonProperty("argument") CompleteArgument argument,
 		@JsonProperty("_meta") Map<String, Object> meta,
 		@JsonProperty("context") CompleteContext context) implements Request { // @formatter:on
 
-		public CompleteRequest(McpSchema.CompleteReference ref, CompleteArgument argument, Map<String, Object> meta) {
+		public CompleteRequest(CompleteReference ref, CompleteArgument argument, Map<String, Object> meta) {
 			this(ref, argument, meta, null);
 		}
 
-		public CompleteRequest(McpSchema.CompleteReference ref, CompleteArgument argument, CompleteContext context) {
+		public CompleteRequest(CompleteReference ref, CompleteArgument argument, CompleteContext context) {
 			this(ref, argument, null, context);
 		}
 
-		public CompleteRequest(McpSchema.CompleteReference ref, CompleteArgument argument) {
+		public CompleteRequest(CompleteReference ref, CompleteArgument argument) {
 			this(ref, argument, null, null);
 		}
 
@@ -2426,7 +2426,7 @@ public final class McpSchema {
 	// ---------------------------
 	// Content Types
 	// ---------------------------
-	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = As.PROPERTY, property = "type")
 	@JsonSubTypes({ @JsonSubTypes.Type(value = TextContent.class, name = "text"),
 			@JsonSubTypes.Type(value = ImageContent.class, name = "image"),
 			@JsonSubTypes.Type(value = AudioContent.class, name = "audio"),

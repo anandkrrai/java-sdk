@@ -212,6 +212,7 @@ class LifecycleInitializer {
 		 * @param initializeResult The result of the MCP initialization process
 		 */
 		private void complete(McpSchema.InitializeResult initializeResult) {
+			logger.info("Initial client session completed");
 			// first ensure the result is cached
 			this.result.set(initializeResult);
 			// inform all the subscribers waiting for the initialization
@@ -277,7 +278,7 @@ class LifecycleInitializer {
 			DefaultInitialization previous = this.initializationRef.compareAndExchange(null, newInit);
 
 			boolean needsToInitialize = previous == null;
-			logger.debug(needsToInitialize ? "Initialization process started" : "Joining previous initialization");
+			logger.info(needsToInitialize ? "Initialization process started" : "Joining previous initialization");
 
 			Mono<McpSchema.InitializeResult> initializationJob = needsToInitialize ? doInitialize(newInit, ctx)
 					: previous.await();
@@ -298,12 +299,17 @@ class LifecycleInitializer {
 		McpClientSession mcpClientSession = initialization.mcpSession();
 
 		String latestVersion = this.protocolVersions.get(this.protocolVersions.size() - 1);
+		logger.info("latestVersion : {}", latestVersion);
 
 		McpSchema.InitializeRequest initializeRequest = new McpSchema.InitializeRequest(latestVersion,
 				this.clientCapabilities, this.clientInfo);
 
+		logger.info("initializeRequest created {}. Sending request", initializeRequest);
+
 		Mono<McpSchema.InitializeResult> result = mcpClientSession.sendRequest(McpSchema.METHOD_INITIALIZE,
 				initializeRequest, McpAsyncClient.INITIALIZE_RESULT_TYPE_REF);
+
+		logger.info("init result received {}. ", result);
 
 		return result.flatMap(initializeResult -> {
 			logger.info("Server response with Protocol: {}, Capabilities: {}, Info: {} and Instructions {}",
@@ -315,9 +321,15 @@ class LifecycleInitializer {
 						"Unsupported protocol version from the server: " + initializeResult.protocolVersion()));
 			}
 
-			return mcpClientSession.sendNotification(McpSchema.METHOD_NOTIFICATION_INITIALIZED, null)
+			logger.info("Supported protocol version.");
+
+			return mcpClientSession
+				.sendNotification(McpSchema.METHOD_NOTIFICATION_INITIALIZED,
+						new McpSchema.InitializeRequest(latestVersion, this.clientCapabilities, this.clientInfo))
 				.thenReturn(initializeResult);
+			// return Mono.just(initializeResult);// bypass the notification
 		}).doOnNext(initialization::complete).onErrorResume(ex -> {
+			logger.error("onErrorResume", ex);
 			initialization.error(ex);
 			return Mono.error(ex);
 		});
