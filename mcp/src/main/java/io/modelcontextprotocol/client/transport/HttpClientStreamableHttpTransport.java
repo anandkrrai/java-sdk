@@ -221,11 +221,16 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 			logger.info("this.endpoint : {} ", this.endpoint);
 
-			HttpRequest request = requestBuilder.uri(Utils.resolveUri(this.baseUri, this.endpoint))
+			URI resolvedUri = Utils.resolveUri(this.baseUri, this.endpoint);
+			System.out.println("RECONNECT: Attempting to connect to " + resolvedUri);
+			
+			HttpRequest request = requestBuilder.uri(resolvedUri)
 				.header("Accept", TEXT_EVENT_STREAM)
 				.header("Cache-Control", "no-cache")
 				.GET()
 				.build();
+				
+			System.out.println("RECONNECT: Request headers: " + request.headers());
 
 			Disposable connection = Flux.<ResponseEvent>create(sseSink -> this.httpClient
 				.sendAsync(request, responseInfo -> ResponseSubscribers.sseToBodySubscriber(responseInfo, sseSink))
@@ -354,23 +359,21 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 
 			logger.info("transportSession {}", transportSession.sessionId());
 			HttpRequest.Builder requestBuilder = this.requestBuilder.copy();
-			logger.info("request builder {}", requestBuilder);
-
-			logger.info("this.baseUri : {} ", this.baseUri);
-			logger.info("this.endpoint : {} ", this.endpoint);
-			logger.info("this.baseUri.toString()+ this.endpoint : {} ", this.baseUri.toString() + this.endpoint);
 
 			logger.info("Sending sessionId {}", transportSession.sessionId().isPresent());
 			if (transportSession != null && transportSession.sessionId().isPresent()) {
+				logger.info("Sending sessionId {}", transportSession.sessionId().get());
 				requestBuilder = requestBuilder.header("mcp-session-id", transportSession.sessionId().get());
 			}
 
 			String jsonBody = this.toString(sendMessage);
 
+			logger.info("uri {}", Utils.resolveUri(this.baseUri, this.endpoint));
+
 			HttpRequest request = requestBuilder.uri(Utils.resolveUri(this.baseUri, this.endpoint))
 				.header("Accept", TEXT_EVENT_STREAM + ", " + APPLICATION_JSON)
 				.header("Content-Type", APPLICATION_JSON)
-				// .header("Cache-Control", "no-cache")
+				 .header("Cache-Control", "no-cache")
 				.POST(HttpRequest.BodyPublishers.ofString(jsonBody))
 				.build();
 
@@ -390,24 +393,30 @@ public class HttpClientStreamableHttpTransport implements McpClientTransport {
 							responseEventSink.error(throwable);
 						}
 						else {
-							logger.info("Streamable connection established successfully");
+							logger.info("Streamable connection established successfully. respons = {}", response);
 						}
 					})).onErrorMap(CompletionException.class, t -> t.getCause()).onErrorComplete().subscribe();
 
 			}).flatMap(responseEvent -> {
 				logger.info("responseEvent.responseInfo().headers() : {}", responseEvent.responseInfo().headers());
 				logger.info("responseEvent.responseInfo() : {}", responseEvent.responseInfo());
-				if (transportSession.markInitialized(
-						responseEvent.responseInfo().headers().firstValue("mcp-session-id").orElseGet(() -> null))) {
+				String sessionId = responseEvent.responseInfo().headers().firstValue("mcp-session-id").orElseGet(() -> null);
+				System.out.println("SESSION ID from response: " + sessionId);
+				
+				if (transportSession.markInitialized(sessionId)) {
 					// Once we have a session, we try to open an async stream for
 					// the server to send notifications and requests out-of-band.
-
+					System.out.println("SESSION INITIALIZED: Attempting to reconnect with session ID: " + sessionId);
 					reconnect(null).contextWrite(messageSink.contextView()).subscribe();
+					System.out.println("RECONNECT INITIATED");
 				}
 
 				String sessionRepresentation = sessionIdOrPlaceholder(transportSession);
 
 				int statusCode = responseEvent.responseInfo().statusCode();
+
+				logger.info("*** statusCode : {}", statusCode);
+			System.out.println("RESPONSE STATUS CODE: " + statusCode);
 
 				if (statusCode >= 200 && statusCode < 300) {
 

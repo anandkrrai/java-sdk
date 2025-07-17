@@ -1,9 +1,12 @@
 package io.modelcontextprotocol;
 
+import java.time.Duration;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.spec.McpSchema;
 
 public class testtss {
 
@@ -30,10 +33,25 @@ public class testtss {
 		// HttpClientStreamableHttpTransport streamableHttpTransport =
 		// HttpClientStreamableHttpTransport.builder("https://mcp.atlassian.com/v1/sse").build();
 		//
-		McpSyncClient client = McpClient.sync(streamableHttpTransport).build();
+//		McpSyncClient client = McpClient.sync(streamableHttpTransport).build();
+//		client.initialize();
+		// Create a sync client with custom configuration
+
+
+		McpSyncClient client = McpClient.sync(streamableHttpTransport)
+			.requestTimeout(Duration.ofSeconds(10))
+			.capabilities(McpSchema.ClientCapabilities.builder()
+				.roots(true)      // Enable roots capability
+				.sampling()       // Enable sampling capability
+				.build())
+			.build();
+
+		// Initialize connection
 		client.initialize();
 
-		client.listTools();
+		// List available tools
+		McpSchema.ListToolsResult tools = client.listTools();
+
 	}
 
 }
